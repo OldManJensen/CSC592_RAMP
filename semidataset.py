@@ -14,20 +14,21 @@ import logging
 
 DATASETS = ['cifar10', 'svhn']
 
-
+#Extends torch.utils.data.Dataset, supports loading labeled data.
 class SemiSupervisedDataset(Dataset):
     def __init__(self,
                  base_dataset='cifar10',
-                 take_amount=None,
+                 take_amount=None, #How many labeled samples to keep from the dataset
                  take_amount_seed=13,
-                 add_svhn_extra=False,
-                 aux_data_filename=None,
-                 add_aux_labels=True,
+                 add_svhn_extra=False, #Add extra SHVN data?
+                 aux_data_filename=None, #Path to a pickled file with data
+                 add_aux_labels=True, #Including labels for aux data
                  aux_take_amount=None,
-                 train=False,
+                 train=False, #If true, load training data, otherwise run test data.
                  **kwargs):
         """A dataset with auxiliary pseudo-labeled data"""
 
+        #Loading the core dataset
         if base_dataset == 'cifar10':
             self.dataset = CIFAR10(train=train, **kwargs)
         elif base_dataset == 'svhn':
@@ -48,6 +49,7 @@ class SemiSupervisedDataset(Dataset):
         self.base_dataset = base_dataset
         self.train = train
 
+        #If take_amount is set, randomly selects a subset of trianing data.
         if self.train:
             if take_amount is not None:
                 rng_state = np.random.get_state()
@@ -64,9 +66,11 @@ class SemiSupervisedDataset(Dataset):
                 self.targets = self.targets[take_inds]
                 self.data = self.data[take_inds]
 
+            #Creates index lists for sup_indeces and unsup_indices samples
             self.sup_indices = list(range(len(self.targets)))
             self.unsup_indices = []
 
+            #If aux data is given, load and potentially trim aux data and append it to training data.
             if aux_data_filename is not None:
                 aux_path = os.path.join(kwargs['root'], aux_data_filename)
                 print("Loading data from %s" % aux_path)
@@ -150,6 +154,7 @@ class SemiSupervisedDataset(Dataset):
         self.dataset.labels = self.targets  # because torchvision is annoying
         return self.dataset[item]
 
+    #Function for debugging, returns formatted dataset strings
     def __repr__(self):
         fmt_str = 'Semisupervised Dataset ' + self.__class__.__name__ + '\n'
         fmt_str += '    Number of datapoints: {}\n'.format(self.__len__())
@@ -161,7 +166,7 @@ class SemiSupervisedDataset(Dataset):
         fmt_str += '{0}{1}'.format(tmp, self.dataset.target_transform.__repr__().replace('\n', '\n' + ' ' * len(tmp)))
         return fmt_str
 
-
+#Function that enables balanced sampling between labaled and pseudo-labeled data
 class SemiSupervisedSampler(Sampler):
     """Balanced sampling from the labeled and unlabeled data"""
     def __init__(self, sup_inds, unsup_inds, batch_size, unsup_fraction=0.5,
@@ -185,6 +190,7 @@ class SemiSupervisedSampler(Sampler):
 
         super().__init__(None)
 
+    #For each batch, select a random sample and fills up the rest of the batch with random unsup_inds.
     def __iter__(self):
         batch_counter = 0
         while batch_counter < self.num_batches:
@@ -207,5 +213,6 @@ class SemiSupervisedSampler(Sampler):
                 yield batch
                 batch_counter += 1
 
+    #Total number of batches.
     def __len__(self):
         return self.num_batches
