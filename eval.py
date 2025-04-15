@@ -18,33 +18,44 @@ from autopgd_train import apgd_train
 # eps_dict = {'cifar10': {'Linf': 8. / 255., 'L2': .5, 'L1': 12.},
 #     'imagenet': {'Linf': 4. / 255., 'L2': 2., 'L1': 255.}}
 
+# Dictionary for epsilon values based on dataset and norm 
 eps_dict = {'cifar10': {'Linf': 8. / 255., 'L2': 0.5, 'L1': 12.},
     'imagenet': {'Linf': 4. / 255., 'L2': 2., 'L1': 255.}}
 
-
+# Evaulate model on a single norm and epsilon
 def eval_single_norm(model, x, y, norm='Linf', eps=8. / 255., bs=1000,
     log_path=None, verbose=True):
+    # Initialize the AutoAttack adversary
     adversary = autoattack.AutoAttack(model, norm=norm, eps=eps,
         log_path=log_path)
     adversary.attacks_to_run = ['apgd-ce', 'apgd-t']
     #adversary.apgd.n_restarts = 1
+
+    #Generating adversarial examples
     with torch.no_grad():
         x_adv = adversary.run_standard_evaluation(x, y, bs=bs)
     #if verbose
+    #Computing robust accuracy
     acc = rb.utils.clean_accuracy(model, x_adv, y, device='cuda')
     other_utils.check_imgs(x_adv, x, norm)
     print('robust accuracy: {:.1%}'.format(acc))
     return x_adv
 
-
+#Evaluating the model across multiple norms and epsilons
 def eval_norms(model, x, y, l_norms, l_epss, bs=1000, log_path=None, n_cls=10):
+
+    #lists to store adversarial examples and accuracies
     l_x_adv = []
     acc_dets = []
     logger = other_utils.Logger(log_path)
+
+    #Iterating over different norms and epsilons
     for norm, eps in zip(l_norms, l_epss):
         x_adv_curr = eval_single_norm(model, x, y, norm=norm, eps=eps, bs=bs,
             log_path=log_path, verbose=False)
         l_x_adv.append(x_adv_curr.cpu())
+
+    #Computing clean accuracy
     acc, output = utils.get_accuracy_and_logits(model, x, y, batch_size=bs,
         n_classes=n_cls)
     pred = output.to(y.device).max(1)[1] == y
@@ -52,6 +63,7 @@ def eval_norms(model, x, y, l_norms, l_epss, bs=1000, log_path=None, n_cls=10):
     logger.log('clean accuracy: {:.1%}'.format(pred.float().mean()))
     print('clean accuracy: {:.1%}'.format(acc))
     acc_dets.append(('clean', acc + 0.))
+    #Evaluating on adversarial examples for each norm
     for norm, eps, x_adv in zip(l_norms, l_epss, l_x_adv):
         acc, output = utils.get_accuracy_and_logits(model, x_adv, y,
             batch_size=bs, n_classes=n_cls)
@@ -61,12 +73,14 @@ def eval_norms(model, x, y, l_norms, l_epss, bs=1000, log_path=None, n_cls=10):
         print('robust accuracy: {:.1%}'.format(acc))
         pred *= pred_curr
         acc_dets.append((norm, acc + 0.))
+
+    #Log the union of accuracies across all norms
     logger.log('robust accuracy {}: {:.1%}'.format('+'.join(l_norms),
         pred.float().mean()))
     acc_dets.append(('union', pred.float().mean()))
     return l_x_adv, acc_dets
 
-
+#Fast evaulation across multiple norms with APGD training
 def eval_norms_fast(model, x, y, l_norms, l_epss, n_iter=100, n_cls=10):
     acc_dict = {}
     assert not model.training
@@ -84,7 +98,7 @@ def eval_norms_fast(model, x, y, l_norms, l_epss, n_iter=100, n_cls=10):
     acc_dict['union'] = pred.float().mean()
     return acc_dict
 
-
+#Argument parser for command-line options
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_name', type=str, default='Wong2020Fast')
