@@ -1,6 +1,7 @@
 import os
 import torch
 
+#Logging messages to console and file
 class Logger():
     def __init__(self, log_path):
         self.log_path = log_path
@@ -11,8 +12,10 @@ class Logger():
             with open(self.log_path, 'a') as f:
                 f.write(str_to_log + '\n')
                 f.flush()
-            
+
+#Checks image perturbations
 def check_imgs(adv, x, norm):
+    #Calculating perturbations here
     delta = (adv - x).view(adv.shape[0], -1)
     if norm == 'Linf':
         res = delta.abs().max(dim=1)[0]
@@ -21,24 +24,28 @@ def check_imgs(adv, x, norm):
     elif norm == 'L1':
         res = delta.abs().sum(dim=1)
 
+    #Logging perturbation statistics
     str_det = 'max {} pert: {:.5f}, nan in imgs: {}, max in imgs: {:.5f}, min in imgs: {:.5f}'.format(
         norm, res.max(), (adv != adv).sum(), adv.max(), adv.min())
     print(str_det)
     
     return str_det
 
+#L1 norm calculation
 def L1_norm(x, keepdim=False):
     z = x.abs().view(x.shape[0], -1).sum(-1)
     if keepdim:
         z = z.view(-1, *[1]*(len(x.shape) - 1))
     return z
 
+#L2 norm calculation
 def L2_norm(x, keepdim=False):
     z = (x ** 2).view(x.shape[0], -1).sum(-1).sqrt()
     if keepdim:
         z = z.view(-1, *[1]*(len(x.shape) - 1))
     return z
 
+#L0 norm calculations (Counting non-zero elements
 def L0_norm(x):
     return (x != 0.).view(x.shape[0], -1).sum(-1)
 
