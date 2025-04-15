@@ -8,23 +8,34 @@ from datetime import datetime
 
 from other_utils import makedir
 
-
+#List all models from ./trained_models directory
 models = os.listdir('./trained_models')
+#Filtering models by date.
 models_names = [c for c in models if '05-25' in c]
 
+#The keys to skip when the data is plotted
 l_skip = ['rob_acc_train', 'rob_acc_test', 'clean_acc_test', 'final_acc_dets']
+
 
 makedir('./plots_train')
 logpath = './results_train/stats_{}.txt'.format(str(datetime.now())[:10])
 l_runs = []
 
+#Iterating over each model in the new list filtered by date.
 for c in models_names:
+    #If the model's metrics exist
     if os.path.exists('./trained_models/{}/metrics.pth'.format(c)):
+        #Load Metrics
         metrics = torch.load('./trained_models/{}/metrics.pth'.format(c))
+        #Number of plots to generate
         n_plt = len([c for c in metrics if not c in l_skip])
+        #Creating a figure
         fig = plt.figure(figsize=(5 * n_plt, 4))
+        #List to hold plot axes
         ax = []
+        #Counter for plot
         i_plt = 0
+        #Iterating through the mtrics and plotting them
         for i, (k, v) in enumerate(metrics.items()):
             if not k in l_skip:
                 ax.append( fig.add_subplot(1, n_plt, i_plt + 1))
