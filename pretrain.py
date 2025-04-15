@@ -28,7 +28,7 @@ import eval as utils_eval
 eps_dict = {'cifar10': {'Linf': 8. / 255., 'L2': 0.5, 'L1': 12.},
     'imagenet': {'Linf': 4. / 255., 'L2': 2., 'L1': 255.}}
 
-
+#This is the function that parses command-line arguments for configuring the model and training.
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_name', type=str, default='Wong2020Fast')
