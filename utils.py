@@ -3,8 +3,11 @@ import torch
 import math
 import numpy as np
 
+#Constructs a unique name for the training run
 def get_runname(args):
+    #Base name with timestamp
     args.fname = 'model_{}'.format(str(datetime.now()))
+    #Append key training parameters for tracking
     args.fname += ' {} lr={:.5f} {} ep={}{} attack={} fts={} seed={}'.format(
         args.dataset, #+ ' ' if args.dataset != 'cifar10' else ''
         args.lr_max, args.lr_schedule, args.epochs, ' wd={}'.format(
@@ -20,18 +23,19 @@ def get_runname(args):
         args.fname += ' eps=default'
     args.fname += ' iter={}'.format(args.at_iter if args.l_iters is None else args.l_iters)
 
-
+#Initializes a dictionary to store metrics over epochs
 def stats_dict(args):
     stats = {#'rob_acc_test': torch.zeros([args.epochs]),
         #'clean_acc_test': torch.zeros([args.epochs]),
         #'rob_acc_train': torch.zeros([args.epochs]),
         #'loss_train': torch.zeros([args.epochs]),
-        'rob_acc_test_dets': {},
-        'rob_acc_train_dets': {},
-        'loss_train_dets': {},
-        'freq_in_at': {},
+        'rob_acc_test_dets': {}, #robust test accuracy
+        'rob_acc_train_dets': {}, #robust training accuracy
+        'loss_train_dets': {}, #training loss per norm
+        'freq_in_at': {}, #frequency that each norm was used during adversarial training
         }
-    #
+    
+    #Initializes tensors for each norm + union + clean
     for norm in args.all_norms + ['union', 'clean']:
         stats['rob_acc_test_dets'][norm] = torch.zeros([args.epochs])
         stats['rob_acc_train_dets'][norm] = torch.zeros([args.epochs])
@@ -41,7 +45,7 @@ def stats_dict(args):
             stats['freq_in_at'][norm] = torch.zeros([args.epochs])
     return stats
 
-
+#Loads the pretrained model from a disk
 def load_pretrained_models(modelname):
     from model_zoo.fast_models import PreActResNet18
     # from model_zoo.resnet_madry import resnet50
@@ -59,9 +63,10 @@ def load_pretrained_models(modelname):
     model.eval()
     return model
 
-
+#Gives us the learning rate scheduled function
 def get_lr_schedule(args):
     if args.lr_schedule == 'superconverge':
+        #Triangular schedule: Increase then decay.
         lr_schedule = lambda t: np.interp([t], [0, args.epochs * 2 // 5, args.epochs], [0, args.lr_max, 0])[0]
         # lr_schedule = lambda t: np.interp([t], [0, args.epochs], [0, args.lr_max])[0]
     elif args.lr_schedule == 'piecewise':
@@ -81,6 +86,7 @@ def get_lr_schedule(args):
             else:
                 return args.lr_max / 100.
     elif args.lr_schedule == 'piecewise-imagenet':
+        #batch-based scheduling
         def lr_schedule(batch_id, batch_num):
             if batch_id / batch_num < 1. / 3.:
                 return args.lr_max
@@ -89,11 +95,13 @@ def get_lr_schedule(args):
             else:
                 return args.lr_max / 100.
     elif args.lr_schedule.startswith('static'):
+        #Constant learning rate with potential decay after 70 epochs.
         def lr_schedule(t):
             if t > 70:
                 return args.lr_max / 10.
             return args.lr_max
     elif args.lr_schedule.startswith('piecewise'):
+        #User-defined piecwise schedule
         w = [float(c) for c in args.lr_schedule.split('-')[1:]]
         def lr_schedule(t):
             c = 0
@@ -103,7 +111,7 @@ def get_lr_schedule(args):
 
     return lr_schedule
 
-
+#Grabs accuracy of model and returns soft label results.
 def get_accuracy_and_logits(model, x, y, batch_size=100, n_classes=10):
     logits = torch.zeros([y.shape[0], n_classes], device='cpu')
     acc = 0.
@@ -123,7 +131,7 @@ def get_accuracy_and_logits(model, x, y, batch_size=100, n_classes=10):
 
     return acc.item() / x.shape[0], logits
 
-
+#gp means Gradient Projection, which uses local gradients to adjust the global model
 def gp(b, local_models_dict, old_global_model_dict, target_model_dict, clients_size_frac):
     ret_dict = copy.deepcopy(old_global_model_dict)
     cos = torch.nn.CosineSimilarity()
@@ -134,8 +142,9 @@ def gp(b, local_models_dict, old_global_model_dict, target_model_dict, clients_s
                 local_grad = local_dict[key] - old_global_model_dict[key]
                 cur_sim = cos(global_grad.reshape(1,-1), local_grad.reshape(1,-1))
                 if cur_sim > 0:
+                    #We are only reinforcing positive gradients
                     ret_dict[key] = ret_dict[key] + b * clients_size_frac[idx] * cur_sim * local_grad
-
+            #This line is adding the new weighted global gradient
             ret_dict[key] = ret_dict[key] + (1-b) * global_grad
         else:
             # we did not want to change the bn stats
