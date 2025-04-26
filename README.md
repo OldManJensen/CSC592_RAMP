@@ -1,3 +1,12 @@
+# CSC592 Introduction
+This is a copy of the github repo from the research paper:
+
+RAMP: Boosting Adversarial Robustness Against Multiple $l_p$ Perturbations for Universal Robustness [[NeurIPS 2024]](https://arxiv.org/abs/2402.06827)\
+*Enyi Jiang, Gagandeep Singh*
+
+I felt as if the structure of this github was already solid, so I just copied it over and started making edits on the code inside the github to showcase my progress
+
+
 # RAMP
 RAMP: Boosting Adversarial Robustness Against Multiple $l_p$ Perturbations for Universal Robustness [[NeurIPS 2024]](https://arxiv.org/abs/2402.06827)\
 *Enyi Jiang, Gagandeep Singh*
