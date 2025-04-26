@@ -40,6 +40,8 @@ def parse_args():
     parser.add_argument('--model_dir', type=str, default='./models', help='where to store downloaded models')
     parser.add_argument('--save_dir', type=str, default='./trained_models')
     parser.add_argument('--lr-schedule', default='piecewise-ft')
+    parser.add_argument('--lr-milestone', type=str, default='100 150 180')
+    parser.add_argument('--lr-gamma', type=float, default=0.1)
     parser.add_argument('--lr-max', default=.01, type=float)
     parser.add_argument('--epochs', default=20, type=int)
     parser.add_argument('--save_freq', type=int, default=100)
