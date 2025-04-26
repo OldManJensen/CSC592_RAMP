@@ -44,6 +44,9 @@ def parse_args():
     #parser.add_argument('--norm', type=str, default='Linf')
     #parser.add_argument('--save_imgs', action='store_true')
     parser.add_argument('--lr-schedule', default='piecewise-ft')
+    parser.add_argument('--lr-milestone', type=str, default='50 75')
+    parser.add_argument('--lr-gamma', type=float, default=0.1)
+
     parser.add_argument('--lr-max', default=.01, type=float)
     parser.add_argument('--epochs', default=20, type=int)
     #parser.add_argument('--log_freq', type=int, default=20)
